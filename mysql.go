@@ -42,21 +42,33 @@ func Ping() error {
 
 //SetConnMaxLifetime 设置Conn长连接的最长使用时间
 func (c *Client) SetConnMaxLifetime(d time.Duration) {
+	if connErr != nil {
+		return
+	}
 	c.db.SetConnMaxLifetime(d)
 }
 
 //SetMaxIdleConns 设置连接池的大小,也即长连接的最大数量
 func (c *Client) SetMaxIdleConns(n int) {
+	if connErr != nil {
+		return
+	}
 	c.db.SetMaxIdleConns(n)
 }
 
 //SetMaxOpenConns 设置向Mysql服务端发出的所有链接（包括长连接和短连接）的最大数目
 func (c *Client) SetMaxOpenConns(n int) {
+	if connErr != nil {
+		return
+	}
 	c.db.SetMaxOpenConns(n)
 }
 
 //GetRow 获取一行数据
 func (c *Client) GetRow(query string, args ...interface{}) (map[string]string, error) {
+	if connErr != nil {
+		return nil, connErr
+	}
 	rows, err := c.db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -96,6 +108,9 @@ func (c *Client) GetRow(query string, args ...interface{}) (map[string]string, e
 
 //GetResult 获取一个结果集数据
 func (c *Client) GetResult(query string, args ...interface{}) ([]map[string]string, error) {
+	if connErr != nil {
+		return nil, connErr
+	}
 	rows, err := c.db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -137,6 +152,9 @@ func (c *Client) GetResult(query string, args ...interface{}) ([]map[string]stri
 
 //Query 执行一个SQL语句
 func (c *Client) Query(query string, args ...interface{}) (map[string]int64, error) {
+	if connErr != nil {
+		return nil, connErr
+	}
 	res, err := c.db.Exec(query, args...)
 	if err != nil {
 		return nil, err
@@ -157,18 +175,27 @@ func (c *Client) Query(query string, args ...interface{}) (map[string]int64, err
 
 //Start 开启一个事务
 func (c *Client) Start() error {
+	if connErr != nil {
+		return connErr
+	}
 	_, err := c.db.Exec("START TRANSACTION")
 	return err
 }
 
 //Commit 提交一个事务
 func (c *Client) Commit() error {
+	if connErr != nil {
+		return connErr
+	}
 	_, err := c.db.Exec("COMMIT")
 	return err
 }
 
 //Rollback 回滚一个事务
 func (c *Client) Rollback() error {
+	if connErr != nil {
+		return connErr
+	}
 	_, err := c.db.Exec("ROLLBACK")
 	return err
 }
