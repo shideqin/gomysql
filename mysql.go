@@ -2,10 +2,8 @@ package gomysql
 
 import (
 	"database/sql"
-	"log"
 	"time"
 
-	//mysql依赖包
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -14,25 +12,32 @@ type Client struct {
 	db *sql.DB
 }
 
+var connErr error
+
 //Conn 连接mysql
 func Conn(host, user, passwd, dbname, timeout string) *Client {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("mysql recover in ", r)
+			connErr = r.(error)
 		}
 	}()
 	db, err := sql.Open("mysql", user+":"+passwd+"@tcp("+host+")/"+dbname+"?charset=utf8&timeout="+timeout)
 	if err != nil {
-		db.Close()
-		panic("conn " + err.Error())
+		panic(err)
 	}
 	if err := db.Ping(); err != nil {
-		db.Close()
-		panic("ping " + err.Error())
+		_ = db.Close()
+		panic(err)
 	}
+	connErr = nil
 	return &Client{
 		db: db,
 	}
+}
+
+//Ping 监测数据库连接
+func Ping() error {
+	return connErr
 }
 
 //SetConnMaxLifetime 设置Conn长连接的最长使用时间
@@ -147,7 +152,7 @@ func (c *Client) Query(query string, args ...interface{}) (map[string]int64, err
 	return map[string]int64{
 		"LastInsertId": lastInsertID,
 		"RowsAffected": rowsAffected,
-	}, err
+	}, nil
 }
 
 //Start 开启一个事务
