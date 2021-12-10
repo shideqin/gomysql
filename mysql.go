@@ -66,17 +66,18 @@ func (c *Client) SetMaxOpenConns(n int) {
 
 //GetRow 获取一行数据
 func (c *Client) GetRow(query string, args ...interface{}) (map[string]string, error) {
+	var res = map[string]string{}
 	if connErr != nil {
-		return nil, connErr
+		return res, connErr
 	}
 	rows, err := c.db.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	defer rows.Close()
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	// Make a slice for the values
 	values := make([]sql.RawBytes, len(columns))
@@ -88,11 +89,10 @@ func (c *Client) GetRow(query string, args ...interface{}) (map[string]string, e
 	for i := range values {
 		scanArgs[i] = &values[i]
 	}
-	var res = map[string]string{}
 	for rows.Next() {
 		err = rows.Scan(scanArgs...)
 		if err != nil {
-			return nil, err
+			return res, err
 		}
 		var value string
 		for i, col := range values {
@@ -108,17 +108,18 @@ func (c *Client) GetRow(query string, args ...interface{}) (map[string]string, e
 
 //GetResult 获取一个结果集数据
 func (c *Client) GetResult(query string, args ...interface{}) ([]map[string]string, error) {
+	var res = make([]map[string]string, 0)
 	if connErr != nil {
-		return nil, connErr
+		return res, connErr
 	}
 	rows, err := c.db.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	defer rows.Close()
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	// Make a slice for the values
 	values := make([]sql.RawBytes, len(columns))
@@ -130,11 +131,10 @@ func (c *Client) GetResult(query string, args ...interface{}) ([]map[string]stri
 	for i := range values {
 		scanArgs[i] = &values[i]
 	}
-	var res = make([]map[string]string, 0)
 	for rows.Next() {
-		err := rows.Scan(scanArgs...)
+		err = rows.Scan(scanArgs...)
 		if err != nil {
-			return nil, err
+			return res, err
 		}
 		var value string
 		var tmp = map[string]string{}
@@ -152,25 +152,25 @@ func (c *Client) GetResult(query string, args ...interface{}) ([]map[string]stri
 
 //Query 执行一个SQL语句
 func (c *Client) Query(query string, args ...interface{}) (map[string]int64, error) {
+	var res = map[string]int64{}
 	if connErr != nil {
-		return nil, connErr
+		return res, connErr
 	}
-	res, err := c.db.Exec(query, args...)
+	exec, err := c.db.Exec(query, args...)
 	if err != nil {
-		return nil, err
+		return res, err
 	}
-	lastInsertID, err := res.LastInsertId()
+	lastInsertID, err := exec.LastInsertId()
 	if err != nil {
-		return nil, err
+		return res, err
 	}
-	rowsAffected, err := res.RowsAffected()
+	rowsAffected, err := exec.RowsAffected()
 	if err != nil {
-		return nil, err
+		return res, err
 	}
-	return map[string]int64{
-		"LastInsertId": lastInsertID,
-		"RowsAffected": rowsAffected,
-	}, nil
+	res["LastInsertId"] = lastInsertID
+	res["RowsAffected"] = rowsAffected
+	return res, nil
 }
 
 //Start 开启一个事务
