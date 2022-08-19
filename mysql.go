@@ -2,6 +2,7 @@ package gomysql
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -9,68 +10,72 @@ import (
 
 //Client mysql连接结构体
 type Client struct {
-	db *sql.DB
+	host    string
+	conn    *sql.DB
+	connErr error
 }
-
-var connErr error
 
 //Conn 连接mysql
 func Conn(host, user, passwd, dbname, timeout string) *Client {
-	defer func() {
-		if r := recover(); r != nil {
-			connErr = r.(error)
-		}
-	}()
+	cli := &Client{}
 	db, err := sql.Open("mysql", user+":"+passwd+"@tcp("+host+")/"+dbname+"?charset=utf8&timeout="+timeout)
 	if err != nil {
-		panic(err)
+		cli.connErr = fmt.Errorf("host: %s error: %s", host, err.Error())
+		return cli
 	}
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
-		panic(err)
+		cli.connErr = fmt.Errorf("host: %s error: %s", host, err.Error())
+		return cli
 	}
-	connErr = nil
-	return &Client{
-		db: db,
-	}
+	cli.host = host
+	cli.conn = db
+	return cli
 }
 
 //Ping 监测数据库连接
-func Ping() error {
-	return connErr
+func (c *Client) Ping() error {
+	if c.connErr != nil {
+		return c.connErr
+	}
+	err := c.conn.Ping()
+	if err != nil {
+		c.connErr = fmt.Errorf("host: %s error: %s", c.host, err.Error())
+	}
+	return c.connErr
 }
 
 //SetConnMaxLifetime 设置Conn长连接的最长使用时间
 func (c *Client) SetConnMaxLifetime(d time.Duration) {
-	if connErr != nil {
+	if c.connErr != nil {
 		return
 	}
-	c.db.SetConnMaxLifetime(d)
+	c.conn.SetConnMaxLifetime(d)
 }
 
 //SetMaxIdleConns 设置连接池的大小,也即长连接的最大数量
 func (c *Client) SetMaxIdleConns(n int) {
-	if connErr != nil {
+	if c.connErr != nil {
 		return
 	}
-	c.db.SetMaxIdleConns(n)
+	c.conn.SetMaxIdleConns(n)
 }
 
 //SetMaxOpenConns 设置向Mysql服务端发出的所有链接（包括长连接和短连接）的最大数目
 func (c *Client) SetMaxOpenConns(n int) {
-	if connErr != nil {
+	if c.connErr != nil {
 		return
 	}
-	c.db.SetMaxOpenConns(n)
+	c.conn.SetMaxOpenConns(n)
 }
 
 //GetRow 获取一行数据
 func (c *Client) GetRow(query string, args ...interface{}) (map[string]string, error) {
 	var res = map[string]string{}
-	if connErr != nil {
-		return res, connErr
+	if c.connErr != nil {
+		return res, c.connErr
 	}
-	rows, err := c.db.Query(query, args...)
+	rows, err := c.conn.Query(query, args...)
 	if err != nil {
 		return res, err
 	}
@@ -109,10 +114,10 @@ func (c *Client) GetRow(query string, args ...interface{}) (map[string]string, e
 //GetResult 获取一个结果集数据
 func (c *Client) GetResult(query string, args ...interface{}) ([]map[string]string, error) {
 	var res = make([]map[string]string, 0)
-	if connErr != nil {
-		return res, connErr
+	if c.connErr != nil {
+		return res, c.connErr
 	}
-	rows, err := c.db.Query(query, args...)
+	rows, err := c.conn.Query(query, args...)
 	if err != nil {
 		return res, err
 	}
@@ -153,10 +158,10 @@ func (c *Client) GetResult(query string, args ...interface{}) ([]map[string]stri
 //Query 执行一个SQL语句
 func (c *Client) Query(query string, args ...interface{}) (map[string]int64, error) {
 	var res = map[string]int64{}
-	if connErr != nil {
-		return res, connErr
+	if c.connErr != nil {
+		return res, c.connErr
 	}
-	exec, err := c.db.Exec(query, args...)
+	exec, err := c.conn.Exec(query, args...)
 	if err != nil {
 		return res, err
 	}
@@ -175,27 +180,27 @@ func (c *Client) Query(query string, args ...interface{}) (map[string]int64, err
 
 //Start 开启一个事务
 func (c *Client) Start() error {
-	if connErr != nil {
-		return connErr
+	if c.connErr != nil {
+		return c.connErr
 	}
-	_, err := c.db.Exec("START TRANSACTION")
+	_, err := c.conn.Exec("START TRANSACTION")
 	return err
 }
 
 //Commit 提交一个事务
 func (c *Client) Commit() error {
-	if connErr != nil {
-		return connErr
+	if c.connErr != nil {
+		return c.connErr
 	}
-	_, err := c.db.Exec("COMMIT")
+	_, err := c.conn.Exec("COMMIT")
 	return err
 }
 
 //Rollback 回滚一个事务
 func (c *Client) Rollback() error {
-	if connErr != nil {
-		return connErr
+	if c.connErr != nil {
+		return c.connErr
 	}
-	_, err := c.db.Exec("ROLLBACK")
+	_, err := c.conn.Exec("ROLLBACK")
 	return err
 }
